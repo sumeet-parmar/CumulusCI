@@ -9,6 +9,7 @@ from sqlalchemy import (
     MetaData,
     Table,
     Unicode,
+    and_,
     create_engine,
     func,
     inspect,
@@ -33,8 +34,13 @@ from cumulusci.tasks.bulkdata.step import (
     DataOperationStatus,
     DataOperationType,
     get_dml_operation,
+    get_query_operation,
 )
-from cumulusci.tasks.bulkdata.utils import RowErrorChecker, SqlAlchemyMixin
+from cumulusci.tasks.bulkdata.utils import (
+    RowErrorChecker,
+    SqlAlchemyMixin,
+    create_simple_table_from_fieldlist,
+)
 from cumulusci.tasks.salesforce import BaseSalesforceApiTask
 
 
@@ -171,17 +177,30 @@ class LoadData(SqlAlchemyMixin, BaseSalesforceApiTask):
             self._load_record_types([mapping.sf_object], conn)
             self.session.commit()
 
-        query = self._query_db(mapping)
         bulk_mode = mapping.bulk_mode or self.bulk_mode or "Parallel"
         api_options = {"batch_size": mapping.batch_size, "bulk_mode": bulk_mode}
-        if mapping.update_key:
-            api_options["external_id_name"] = mapping.update_key
+
+        if mapping.is_complex_upsert(self.org_config):
+            query = self._select_for_upsert(mapping)
+
+            # We've retrieved IDs from the org, so include them.
+            fields = mapping.get_load_field_list() + ["Id"]
+
+            # If we treat "Id" as an "external_id_name" then it's
+            # allowed to be sparse.
+            api_options["external_id_name"] = "Id"
+        else:
+            if mapping.action == DataOperationType.UPSERT:
+                api_options["external_id_name"] = mapping.update_key[0]
+            query = self._query_db(mapping)
+            fields = mapping.get_load_field_list()
+
         step = get_dml_operation(
             sobject=mapping.sf_object,
             operation=mapping.action,
             api_options=api_options,
             context=self,
-            fields=mapping.get_load_field_list(),
+            fields=fields,
             api=mapping.api,
             volume=query.count(),
         )
@@ -671,6 +690,75 @@ class LoadData(SqlAlchemyMixin, BaseSalesforceApiTask):
 
                 # Join maps together to get tuple (Contact ID, Contact SF ID) to insert into step's ID Table.
                 yield (contact_id, contact_sf_id)
+
+    def _select_for_upsert(self, mapping: MappingStep):
+        """Pull data out of Salesforce for upsert matching"""
+        keys: list = mapping.update_key.copy()
+        upsert_key_table = self._create_upsert_key_table(mapping.sf_object, keys)
+        upsert_query = self._create_upsert_join_query(mapping, upsert_key_table)
+        return upsert_query
+
+    def _create_upsert_join_query(self, mapping: MappingStep, upsert_key_table: Table):
+        update_data_table = self.metadata.tables[mapping.table]
+
+        relevant_data_columns = (
+            [update_data_table.c.id]
+            + [update_data_table.c[key] for key in mapping.fields]
+            + [upsert_key_table.c.Id]
+        )
+
+        join_on_clauses = [
+            (
+                upsert_key_table.columns[column_name]
+                == update_data_table.columns[column_name]
+            )
+            for column_name in mapping.update_key
+        ]
+
+        q = self.session.query(*relevant_data_columns)
+        q = q.outerjoin(upsert_key_table, and_(*join_on_clauses))
+        return q
+
+    def _create_upsert_key_table(self, sf_object: str, keys: list) -> Table:
+        tablename = f"upsert_{sf_object}_{'_'.join(keys)}"
+        print("TN", tablename)
+        if "Id" not in (key.title() for key in keys):
+            keys.insert(0, "Id")
+
+        query = f"select {','.join(keys)} from {sf_object}"
+
+        table = self._sf_query_to_table(
+            tablename,
+            sobject=sf_object,
+            fields=keys,
+            api_options={},
+            context=self,
+            query=query,
+        )
+        return table
+
+    def _sf_query_to_table(self, tablename, sobject, fields, **queryargs) -> Table:
+        """Cache data from Salesforce in a table. Creates the table if neccessary"""
+        qs = get_query_operation(sobject=sobject, fields=fields, **queryargs)
+        qs.query()
+        if qs.job_result.status is not DataOperationStatus.SUCCESS:
+            raise BulkDataException(
+                f"Unable to query records for {sobject}: {','.join(qs.job_result.job_errors)}"
+            )
+        results = qs.get_results()
+        table = create_simple_table_from_fieldlist(
+            tablename,
+            self.metadata,
+            fields,
+        )
+
+        self._sql_bulk_insert_from_records(
+            connection=self.session.connection(),
+            table=tablename,
+            columns=tuple(fields),
+            record_iterable=results,
+        )
+        return table
 
     def _set_viewed(self):
         """Set items as recently viewed. Filter out custom objects without custom tabs."""

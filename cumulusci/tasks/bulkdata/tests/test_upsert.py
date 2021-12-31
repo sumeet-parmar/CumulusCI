@@ -17,31 +17,14 @@ class TestUpsert:
             {
                 "sql_path": cumulusci_test_repo_root / "datasets/upsert_example.sql",
                 "mapping": cumulusci_test_repo_root / "datasets/upsert_mapping.yml",
-                "ignore_row_errors": True,
             },
         )
         task()
         result = task.return_values
-        assert result == {
-            "step_results": {
-                "Insert Accounts": {
-                    "sobject": "Account",
-                    "record_type": None,
-                    "status": DataOperationStatus.SUCCESS,
-                    "job_errors": [],
-                    "records_processed": 28,
-                    "total_row_errors": 0,
-                },
-                "Insert Contacts": {
-                    "sobject": "Contact",
-                    "record_type": None,
-                    "status": DataOperationStatus.SUCCESS,
-                    "job_errors": [],
-                    "records_processed": 16,
-                    "total_row_errors": 0,
-                },
-            }
-        }
+        assert all(
+            val["status"] == DataOperationStatus.SUCCESS
+            for val in result["step_results"].values()
+        ), result.values()
         accounts = sf.query("select Name from Account")
         accounts = {account["Name"] for account in accounts["records"]}
         assert "Sitwell-Bluth" in accounts
@@ -51,13 +34,28 @@ class TestUpsert:
             {
                 "sql_path": cumulusci_test_repo_root / "datasets/upsert_example_2.sql",
                 "mapping": cumulusci_test_repo_root / "datasets/upsert_mapping.yml",
-                "ignore_row_errors": True,
             },
         )
         task()
-        result = task.return_values
         accounts = sf.query("select Name from Account")
         accounts = {account["Name"] for account in accounts["records"]}
 
         assert "Sitwell-Bluth" not in accounts
         assert "Bluth-Sitwell" in accounts
+
+        task = create_task(
+            LoadData,
+            {
+                "sql_path": cumulusci_test_repo_root
+                / "datasets/upsert_example_3__opportunities_on_name.sql",
+                "mapping": cumulusci_test_repo_root / "datasets/upsert_mapping.yml",
+            },
+        )
+        task()
+        result = task.return_values
+        opportunities = sf.query("select Name, CloseDate from Opportunity")
+        close_dates = {
+            opp["Name"]: opp["CloseDate"] for opp in opportunities["records"]
+        }
+        assert close_dates["represent Opportunity"] == "2022-01-01"
+        assert close_dates["another Opportunity"] == "2022-01-01"

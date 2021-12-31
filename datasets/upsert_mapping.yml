@@ -15,3 +15,12 @@ Insert Contacts:
         - FirstName
         - LastName
         - Extid__c
+Insert Opportunities:
+    sf_object: Opportunity
+    api: bulk
+    action: upsert
+    update_key: Name
+    fields:
+        - Name
+        - CloseDate
+        - StageName

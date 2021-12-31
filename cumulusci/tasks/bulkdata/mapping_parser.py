@@ -98,13 +98,25 @@ class MappingStep(CCIDictModel):
     ] = None  # default should come from task options
     anchor_date: Optional[Union[str, date]] = None
     soql_filter: Optional[str] = None  # soql_filter property
-    update_key: str = None  # only for upserts
+    update_key: list[str] = ()  # only for upserts
+
+    describe_cache = {}  # class variable
 
     @validator("bulk_mode", "api", "action", pre=True)
     def case_normalize(cls, val):
         if isinstance(val, Enum):
             return val
         return ENUM_VALUES.get(val.lower())
+
+    @validator("update_key", pre=True)
+    def split_update_key(cls, val):
+        if isinstance(val, list):
+            assert all(
+                isinstance(val, str) for val in str
+            ), "All keys should be strings"
+            return val
+        if isinstance(val, str):
+            return val.split(",")
 
     def get_oid_as_pk(self):
         """Returns True if using Salesforce Ids as primary keys."""
@@ -171,6 +183,29 @@ class MappingStep(CCIDictModel):
             columns.append("RecordTypeId")
 
         return columns
+
+    def describe_data(self, org_config):
+        if org_config not in self.describe_cache:
+            describe = getattr(org_config.salesforce_client, self.sf_object).describe()
+            describe = CaseInsensitiveDict(
+                {entry["name"]: entry for entry in describe["fields"]}
+            )
+            self.describe_cache[org_config] = describe
+        return self.describe_cache[org_config]
+
+    def is_complex_upsert(self, org_config):
+        # is this an upsert and one that Salesforce cannot do by itself?
+        describe_data = self.describe_data(org_config)
+
+        if self.action != DataOperationType.UPSERT:
+            return False
+        keys = self.update_key
+        if len(keys) > 1:
+            return True
+
+        key = keys[0]
+        is_key = describe_data[key]["externalId"] or key == "Id"
+        return not is_key
 
     def get_relative_date_context(self, fields: List[str], org_config: OrgConfig):
         date_fields = [
@@ -256,7 +291,7 @@ class MappingStep(CCIDictModel):
 
     @root_validator
     @classmethod
-    def validate_external_id_and_upsert(cls, v):
+    def validate_update_key_and_upsert(cls, v):
         has_update_key = bool(v.get("update_key"))
         is_upsert = v["action"] == DataOperationType.UPSERT
         assert (
@@ -452,10 +487,7 @@ class MappingStep(CCIDictModel):
 
         # Validate, inject, and drop (if configured) fields.
         # By this point, we know the attribute is valid.
-        describe = getattr(org_config.salesforce_client, self.sf_object).describe()
-        describe = CaseInsensitiveDict(
-            {entry["name"]: entry for entry in describe["fields"]}
-        )
+        describe = self.describe_data(org_config)
 
         if not self._validate_field_dict(
             describe, self.fields, inject, strip, drop_missing, operation

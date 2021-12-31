@@ -1405,6 +1405,7 @@ class TestLoadData(unittest.TestCase):
         ]
 
     @mock.patch("cumulusci.tasks.bulkdata.load.get_dml_operation")
+    @responses.activate
     def test_execute_step__record_type_mapping(self, dml_mock):
         task = _make_task(
             LoadData,
@@ -1415,6 +1416,8 @@ class TestLoadData(unittest.TestCase):
         task._load_record_types = mock.Mock()
         task._process_job_results = mock.Mock()
         task._query_db = mock.Mock()
+
+        mock_describe_calls()
 
         task._execute_step(
             MappingStep(
@@ -2407,7 +2410,6 @@ class TestLoadDataIntegrationTests:
             {
                 "sql_path": cumulusci_test_repo_root / "datasets/bad_sample.sql",
                 "mapping": cumulusci_test_repo_root / "datasets/mapping.yml",
-                "ignore_row_errors": True,
             },
         )
         with mock.patch("cumulusci.tasks.bulkdata.step.DEFAULT_BULK_BATCH_SIZE", 3):

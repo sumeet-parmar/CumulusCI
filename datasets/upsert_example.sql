@@ -57,3 +57,18 @@ INSERT INTO "Contact" VALUES(14,'Kaitlyn','Rubio','34');
 INSERT INTO "Contact" VALUES(15,'Jerry','Eaton','35');
 INSERT INTO "Contact" VALUES(16,'Gabrielle','Vargas','36');
 COMMIT;
+
+CREATE TABLE "Opportunity" (
+	id INTEGER NOT NULL,
+	"Name" VARCHAR(255),
+	"CloseDate" VARCHAR(255),
+	"Amount" VARCHAR(255),
+	"StageName" VARCHAR(255),
+	"AccountId" VARCHAR(255),
+	PRIMARY KEY (id)
+);
+
+INSERT INTO "Opportunity" VALUES (1,'represent Opportunity','2021-10-03','136','In Progress','2');
+INSERT INTO "Opportunity" VALUES (2,'yes Opportunity','2021-01-01','138','New','2');
+INSERT INTO "Opportunity" VALUES (3,'another Opportunity','2021-09-08','192','Closed Won','2');
+INSERT INTO "Opportunity" VALUES (4,'need Opportunity','2021-01-23','116','New','2');

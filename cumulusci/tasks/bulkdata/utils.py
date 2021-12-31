@@ -1,6 +1,7 @@
 import collections
 import logging
 import tempfile
+import typing as T
 from contextlib import contextmanager, nullcontext
 from pathlib import Path
 
@@ -105,7 +106,7 @@ def _handle_primary_key(mapping, fields):
         fields.append(Column("id", Integer(), primary_key=True, autoincrement=True))
 
 
-def create_table(mapping, metadata):
+def create_table(mapping, metadata) -> Table:
     """Given a mapping data structure (from mapping.yml) and SQLAlchemy
     metadata, create a table matching the mapping.
 
@@ -123,9 +124,22 @@ def create_table(mapping, metadata):
 
     if mapping.record_type:
         fields.append(Column("record_type", Unicode(255)))
-    t = Table(mapping.table, metadata, *fields)
+    return _create_table(mapping.table, metadata, fields)
+
+
+def create_simple_table_from_fieldlist(
+    tablename, metadata, fieldnames: T.List[str]
+) -> Table:
+    if tablename not in metadata.tables:
+        fields = [Column(field, Unicode(255)) for field in fieldnames]
+        return _create_table(tablename, metadata, fields)
+
+
+def _create_table(tablename, metadata, fields: T.List[Column]) -> Table:
+    t = Table(tablename, metadata, *fields)
     if t.exists():
-        raise BulkDataException(f"Table already exists: {mapping.table}")
+        raise BulkDataException(f"Table already exists: {tablename}")
+    t.create(metadata.bind)
     return t
 
 
