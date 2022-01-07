@@ -60,9 +60,9 @@ class TestBaseConfig(unittest.TestCase):
     def test_strict_getattr(self):
         config = FakeConfig()
         config.config = {"foo": {"bar": "baz"}}
-        with mock.patch.dict(os.environ, {"STRICT_GETATTR": "True"}), pytest.raises(
-            AssertionError
-        ):
+        with mock.patch(
+            "cumulusci.core.config.base_config.STRICT_GETATTR", "True"
+        ), pytest.raises(AssertionError):
             print(config.jfiesojfieoj)
 
     def test_getattr_child_parent_key_missing(self):
