@@ -7,6 +7,11 @@ from cumulusci.oauth.client import OAuth2Client
 
 
 class MarketingCloudServiceConfig(OAuth2ServiceConfig):
+
+    refresh_token: str
+    oauth2_client: str
+    soap_instance_url: str
+
     def __init__(self, config, name, keychain):
         super().__init__(config, name, keychain)
         self._name = name

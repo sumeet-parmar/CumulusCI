@@ -32,4 +32,6 @@ class TestSchema:
         with open(schemapath) as f:
             saved_schema = json.load(f)
 
-        assert current_schema == saved_schema, (current_schema, saved_schema)
+        assert (
+            current_schema == saved_schema
+        ), "Schema is out of date. `make schema` is probably required"

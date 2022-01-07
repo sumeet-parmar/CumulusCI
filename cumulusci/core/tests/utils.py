@@ -105,3 +105,11 @@ class MockLoggerMixin(object):
         logger.setLevel(logging.DEBUG)
         cls._task_log_handler = MockLoggingHandler(logging.DEBUG)
         logger.addHandler(cls._task_log_handler)
+
+
+class MockLookup:
+    def __init__(self, **kwargs):
+        self.dict = kwargs
+
+    def __call__(self, name, default=None):
+        return self.dict[name]

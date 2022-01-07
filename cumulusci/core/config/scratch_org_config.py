@@ -3,7 +3,8 @@ import json
 import os
 import re
 
-from cumulusci.core.config import FAILED_TO_CREATE_SCRATCH_ORG, SfdxOrgConfig
+from cumulusci.core.config import FAILED_TO_CREATE_SCRATCH_ORG
+from cumulusci.core.config.sfdx_org_config import SfdxOrgConfig
 from cumulusci.core.exceptions import (
     CumulusCIException,
     ScratchOrgException,
@@ -16,6 +17,14 @@ nl = "\n"  # fstrings can't contain backslashes
 
 class ScratchOrgConfig(SfdxOrgConfig):
     """Salesforce DX Scratch org configuration"""
+
+    noancestors: bool
+    # default = None  # what is this?
+    instance: str
+    password_failed: bool
+    devhub: str
+
+    createable: bool = True
 
     @property
     def scratch_info(self):

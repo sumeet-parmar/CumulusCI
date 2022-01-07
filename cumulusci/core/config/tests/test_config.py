@@ -21,7 +21,7 @@ from cumulusci.core.config import (
     OrgConfig,
     UniversalConfig,
 )
-from cumulusci.core.config.OrgConfig import VersionInfo
+from cumulusci.core.config.org_config import VersionInfo
 from cumulusci.core.dependencies.dependencies import (
     PackageNamespaceVersionDependency,
     PackageVersionIdDependency,
@@ -42,64 +42,71 @@ from cumulusci.utils import temporary_dir, touch
 from cumulusci.utils.yaml.cumulusci_yml import GitHubSourceModel, LocalFolderSourceModel
 
 
+class FakeConfig(BaseConfig):
+    foo: dict
+
+
 class TestBaseConfig(unittest.TestCase):
     def test_getattr_toplevel_key(self):
-        config = BaseConfig()
+        config = FakeConfig()
         config.config = {"foo": "bar"}
         self.assertEqual(config.foo, "bar")
 
-    def test_getattr_toplevel_key_missing(self):
-        config = BaseConfig()
-        config.config = {}
-        self.assertEqual(config.foo, None)
-
     def test_getattr_child_key(self):
-        config = BaseConfig()
+        config = FakeConfig()
         config.config = {"foo": {"bar": "baz"}}
         self.assertEqual(config.foo__bar, "baz")
 
+    def test_strict_getattr(self):
+        config = FakeConfig()
+        config.config = {"foo": {"bar": "baz"}}
+        with mock.patch.dict(os.environ, {"STRICT_GETATTR": "True"}), pytest.raises(
+            AssertionError
+        ):
+            print(config.jfiesojfieoj)
+
     def test_getattr_child_parent_key_missing(self):
-        config = BaseConfig()
+        config = FakeConfig()
         config.config = {}
         self.assertEqual(config.foo__bar, None)
 
     def test_getattr_child_key_missing(self):
-        config = BaseConfig()
+        config = FakeConfig()
         config.config = {"foo": {}}
         self.assertEqual(config.foo__bar, None)
 
     def test_getattr_default_toplevel(self):
-        config = BaseConfig()
+        config = FakeConfig()
         config.config = {"foo": "bar"}
         config.defaults = {"foo": "default"}
         self.assertEqual(config.foo, "bar")
 
     def test_getattr_default_toplevel_missing_default(self):
-        config = BaseConfig()
+        config = FakeConfig()
         config.config = {"foo": "bar"}
         config.defaults = {}
         self.assertEqual(config.foo, "bar")
 
     def test_getattr_default_toplevel_missing_config(self):
-        config = BaseConfig()
+        config = FakeConfig()
         config.config = {}
         config.defaults = {"foo": "default"}
         self.assertEqual(config.foo, "default")
 
     def test_getattr_default_child(self):
-        config = BaseConfig()
+        config = FakeConfig()
         config.config = {"foo": {"bar": "baz"}}
         config.defaults = {"foo__bar": "default"}
         self.assertEqual(config.foo__bar, "baz")
 
     def test_getattr_default_child_missing_default(self):
-        config = BaseConfig()
+        config = FakeConfig()
         config.config = {"foo": {"bar": "baz"}}
         config.defaults = {}
         self.assertEqual(config.foo__bar, "baz")
 
     def test_getattr_default_child_missing_config(self):
-        config = BaseConfig()
+        config = FakeConfig()
         config.config = {}
         config.defaults = {"foo__bar": "default"}
         self.assertEqual(config.foo__bar, "default")

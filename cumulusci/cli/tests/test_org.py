@@ -16,6 +16,7 @@ from cumulusci.core.exceptions import (
     ScratchOrgException,
     ServiceNotConfigured,
 )
+from cumulusci.core.tests.utils import MockLookup
 
 from .. import org
 from .utils import run_click_command
@@ -653,7 +654,13 @@ class TestOrgCommands:
             "active2",
             "persistent",
         ]
-        runtime.project_config.orgs__scratch = {"shape1": True, "shape2": True}
+
+        runtime.project_config.lookup = MockLookup(
+            orgs__scratch={
+                "shape1": True,
+                "shape2": True,
+            },
+        )
 
         runtime.keychain.get_org.side_effect = [
             ScratchOrgConfig(
@@ -759,7 +766,13 @@ class TestOrgCommands:
             "active2",
             "persistent",
         ]
-        runtime.project_config.orgs__scratch = {"shape1": True, "shape2": True}
+
+        runtime.project_config.lookup = MockLookup(
+            orgs__scratch={
+                "shape1": True,
+                "shape2": True,
+            }
+        )
 
         runtime.keychain.get_org.side_effect = [
             ScratchOrgConfig(
@@ -837,7 +850,12 @@ class TestOrgCommands:
             "active2",
             "persistent",
         ]
-        runtime.project_config.orgs__scratch = {"shape1": True, "shape2": True}
+
+        def lookup(name, default):
+            assert name == "orgs__scratch", name
+            return {"shape1": True, "shape2": True}
+
+        runtime.project_config.lookup = lookup
 
         runtime.keychain.get_org.side_effect = [
             ScratchOrgConfig(
@@ -978,7 +996,10 @@ class TestOrgCommands:
 
     def test_org_scratch(self):
         runtime = mock.Mock()
-        runtime.project_config.orgs__scratch = {"dev": {"orgName": "Dev"}}
+
+        runtime.project_config.lookup = MockLookup(
+            orgs__scratch={"dev": {"orgName": "Dev"}}
+        )
 
         run_click_command(
             org.org_scratch,
@@ -999,7 +1020,9 @@ class TestOrgCommands:
 
     def test_org_scratch__not_default(self):
         runtime = mock.Mock()
-        runtime.project_config.orgs__scratch = {"dev": {"orgName": "Dev"}}
+        runtime.project_config.lookup = MockLookup(
+            orgs__scratch={"dev": {"orgName": "Dev"}}
+        )
 
         run_click_command(
             org.org_scratch,
@@ -1019,7 +1042,7 @@ class TestOrgCommands:
 
     def test_org_scratch_no_configs(self):
         runtime = mock.Mock()
-        runtime.project_config.orgs__scratch = None
+        runtime.project_config.lookup = MockLookup(orgs__scratch=None)
 
         with pytest.raises(click.UsageError):
             run_click_command(
@@ -1035,7 +1058,7 @@ class TestOrgCommands:
 
     def test_org_scratch_config_not_found(self):
         runtime = mock.Mock()
-        runtime.project_config.orgs__scratch = {"bogus": {}}
+        runtime.project_config.lookup = MockLookup(orgs__scratch={"bogus": {}})
 
         with pytest.raises(click.UsageError):
             run_click_command(

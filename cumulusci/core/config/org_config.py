@@ -27,6 +27,38 @@ VersionInfo = namedtuple("VersionInfo", ["id", "number"])
 class OrgConfig(BaseConfig):
     """Salesforce org configuration (i.e. org credentials)"""
 
+    access_token: str
+    config_file: str
+    config_name: str
+    created: str
+    date_created: str
+    days: int
+    email_address: str
+    instance_name: str
+    instance_url: str
+    is_sandbox: str
+    namespace: str
+    namespaced: str
+    org_id: str
+    org_type: str
+    password: str
+    scratch: str
+    scratch_org_type: str
+    set_password: str
+    sfdx_alias: str
+    username: str
+    userinfo: str
+    id: str
+    expires: str
+    active: str
+    default: str
+    expired: bool
+    client_id: str
+    refresh_token: str
+    client_secret: str
+
+    createable: bool = None
+
     # make sure it can be mocked for tests
     OAuth2Client = OAuth2Client
 
